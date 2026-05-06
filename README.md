@@ -10,7 +10,7 @@ Stage 0 — архитектура. Кода ещё нет. Релиз и инс
 
 `llm-swarm-desktop` — produce-сторона экосистемы swarm. Три компонента вместе:
 
-- **`llm-swarm`** — ядро p2p-сети инференса (tracker + node + client SDK). Часть кода ноды (`node/` + `shared/`) распространяется в этом репо как `vendor/` — снимок с фиксированным pin'ом.
+- **`llm-swarm`** — ядро p2p-сети инференса (tracker + node + client SDK), внутренняя codebase команды sudri.ru. Часть кода ноды (`node/` + `shared/`) распространяется в этом репо как `vendor/` — снимок с фиксированным pin'ом, обновляется через `make sync-swarm`. Подробности в `vendor/NOTICE.md` после первого sync'а.
 - **`llm-swarm-webclient`** — веб-клиент на sudri.ru (consume-сторона: чат, баланс, история).
 - **`llm-swarm-desktop`** (этот репо) — GUI-приложение для обычных пользователей: иконка в трее, hardware probe, выбор модели, баланс earned tokens, one-click pause/resume.
 
