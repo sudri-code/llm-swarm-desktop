@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+ENV/
+
+# IDE / editors
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Internal development docs and AI assistant config — не публикуются
+CLAUDE.md
+.claude/
+docs/
+
+# Tests / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Generated assets (см. ADR-0001 + tools/build_qss.py)
+app/styles/tokens.qss
+app/styles/tokens.py
+
+# Logs / runtime
+*.log
+logs/
