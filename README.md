@@ -1,6 +1,6 @@
 # llm-swarm-desktop
 
-Десктоп-клиент для раздачи мощностей в p2p-сеть [`llm-swarm`](https://github.com/sudri-code/llm-swarm). Запускает ноду swarm на домашнем ПК, обслуживает диапазон слоёв модели, начисляет earned tokens на аккаунт [sudri.ru](https://sudri.ru).
+Десктоп-клиент для раздачи мощностей в p2p-сеть `llm-swarm`. Запускает ноду swarm на домашнем ПК, обслуживает диапазон слоёв модели, начисляет earned tokens на аккаунт [sudri.ru](https://sudri.ru).
 
 ## Статус
 
@@ -10,11 +10,11 @@ Stage 0 — архитектура. Кода ещё нет. Релиз и инс
 
 `llm-swarm-desktop` — produce-сторона экосистемы swarm. Три компонента вместе:
 
-- **`llm-swarm`** — ядро p2p-сети инференса (tracker + node + client SDK).
+- **`llm-swarm`** — ядро p2p-сети инференса (tracker + node + client SDK). Часть кода ноды (`node/` + `shared/`) распространяется в этом репо как `vendor/` — снимок с фиксированным pin'ом.
 - **`llm-swarm-webclient`** — веб-клиент на sudri.ru (consume-сторона: чат, баланс, история).
 - **`llm-swarm-desktop`** (этот репо) — GUI-приложение для обычных пользователей: иконка в трее, hardware probe, выбор модели, баланс earned tokens, one-click pause/resume.
 
-CLI-запуск ноды (`python -m node.main`) остаётся для разработчиков. Десктоп — для тех, кому нужна иконка в трее, а не TOML-конфиг.
+Десктоп — для тех, кому нужна иконка в трее, а не TOML-конфиг.
 
 ## Архитектура
 
