@@ -49,9 +49,11 @@ jobs:
 
       # Generate tokens.qss / tokens.py / resources_rc.py from webclient
       # design tokens.  In CI there is no ../llm-swarm-webclient/ checkout,
-      # so build_qss.py falls back to the vendor snapshot at
-      # vendor/tokens.css (ADR-0003).  The step must succeed for lint and
-      # tests to have a valid app/styles/tokens.py.
+      # so build_qss.py uses its two-step fallback:
+      #   1. ../llm-swarm-webclient/frontend/src/styles/tokens.css  (absent in CI)
+      #   2. vendor/tokens.css  — pinned snapshot committed in this repo (ADR-0003 supplement)
+      # vendor/tokens.css is updated locally via `make sync-tokens` and committed.
+      # The step must succeed for lint and tests to have a valid app/styles/tokens.py.
       - name: Generate design tokens
         run: uv run python tools/build_qss.py
 

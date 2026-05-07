@@ -1,7 +1,7 @@
-.PHONY: help install dev lint test tokens vendor-sync
+.PHONY: help install dev lint test tokens vendor-sync sync-tokens sync-all
 
 help:
-	@echo "Targets: install dev lint test tokens vendor-sync"
+	@echo "Targets: install dev lint test tokens vendor-sync sync-tokens sync-all"
 
 install:
 	uv sync --all-extras
@@ -21,5 +21,14 @@ tokens:
 	uv run python tools/build_qss.py
 	@echo "tokens target complete (pyside6-rcc invoked by build_qss.py if fonts present)"
 
+# Sync node/+shared/ from ../llm-swarm (requires local checkout of ../llm-swarm)
 vendor-sync:
-	uv run python tools/sync_vendor.py
+	uv run python tools/sync_vendor.py --target swarm
+
+# Sync vendor/tokens.css from ../llm-swarm-webclient (requires local checkout)
+sync-tokens:
+	uv run python tools/sync_vendor.py --target webclient
+
+# Sync both swarm code and webclient tokens in one step
+sync-all:
+	uv run python tools/sync_vendor.py --target all

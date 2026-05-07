@@ -23,7 +23,10 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-TOKENS_CSS = (
+OUT_QSS = REPO_ROOT / "app" / "styles" / "tokens.qss"
+OUT_PY = REPO_ROOT / "app" / "styles" / "tokens.py"
+
+_TOKENS_CSS_WEBCLIENT_LIVE = (
     REPO_ROOT.parent
     / "llm-swarm-webclient"
     / "frontend"
@@ -31,8 +34,27 @@ TOKENS_CSS = (
     / "styles"
     / "tokens.css"
 )
-OUT_QSS = REPO_ROOT / "app" / "styles" / "tokens.qss"
-OUT_PY = REPO_ROOT / "app" / "styles" / "tokens.py"
+_TOKENS_CSS_VENDOR_SNAPSHOT = REPO_ROOT / "vendor" / "tokens.css"
+
+
+def _resolve_tokens_source() -> tuple[Path, str]:
+    """Locate tokens.css with a two-step fallback.
+
+    Returns (path, source_label) where source_label is one of:
+      'webclient-live'     — ../llm-swarm-webclient checked out locally (dev)
+      'vendor-snapshot'    — vendor/tokens.css pinned snapshot (CI / no webclient)
+
+    Raises RuntimeError if neither source is available.
+    """
+    if _TOKENS_CSS_WEBCLIENT_LIVE.exists():
+        return _TOKENS_CSS_WEBCLIENT_LIVE, "webclient-live"
+    if _TOKENS_CSS_VENDOR_SNAPSHOT.exists():
+        return _TOKENS_CSS_VENDOR_SNAPSHOT, "vendor-snapshot"
+    raise RuntimeError(
+        "tokens.css not found. "
+        "Either checkout ../llm-swarm-webclient or run "
+        "`make sync-tokens` to populate vendor/tokens.css."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1178,16 +1200,15 @@ def ensure_fonts(fonts_dir: Path) -> None:
 
 
 def main() -> int:
-    print(f"Reading tokens from: {TOKENS_CSS}")
-    if not TOKENS_CSS.exists():
-        print(f"ERROR: tokens.css not found at {TOKENS_CSS}", file=sys.stderr)
-        print(
-            "Expected: ../llm-swarm-webclient/frontend/src/styles/tokens.css",
-            file=sys.stderr,
-        )
+    try:
+        tokens_path, source_label = _resolve_tokens_source()
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    css = TOKENS_CSS.read_text(encoding="utf-8")
+    print(f"Reading tokens from: {tokens_path} (source: {source_label})")
+
+    css = tokens_path.read_text(encoding="utf-8")
 
     print("Parsing CSS tokens...")
     tokens = parse_tokens(css)

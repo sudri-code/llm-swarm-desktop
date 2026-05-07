@@ -45,14 +45,18 @@ make tokens
 
 ## Vendor
 
-`vendor/` — снимок `node/` + `shared/` из внутренней codebase sudri.ru (см. ADR-0003).
-Не редактировать вручную. Для обновления требуется доступ к `../llm-swarm/`:
+`vendor/` — снимки сторонних исходников, обновляемые через единый скрипт `tools/sync_vendor.py`. Не редактировать вручную.
 
-```bash
-make vendor-sync
-```
+| Что | Откуда | Pin-файл | Команда |
+|-----|--------|----------|---------|
+| `vendor/node/` + `vendor/shared/` | `../llm-swarm/` (node-код swarm) | `swarm-pin.txt` | `make vendor-sync` |
+| `vendor/tokens.css` | `../llm-swarm-webclient/` (design tokens) | `webclient-pin.txt` | `make sync-tokens` |
 
-Актуальный pin фиксируется в `swarm-pin.txt` (коммитить вместе с изменениями в `vendor/`).
+Для обновления обоих разом: `make sync-all`.
+
+Оба target'а требуют локального чекаута соответствующего репо. CI использует уже закоммиченный снимок из `vendor/` — прямого доступа к соседним репо не требует.
+
+Актуальные pin'ы коммитятся вместе с изменениями в `vendor/`.
 Подробности: `docs/decisions/0003-swarm-code-distribution.md`.
 
 ## Что это и зачем

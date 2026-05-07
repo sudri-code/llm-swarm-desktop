@@ -451,3 +451,105 @@ class TestSyncVendorLogic:
         assert violations == [], (
             f"stdlib secrets.token_bytes should NOT trigger audit, got: {violations}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Webclient tokens.css vendor
+# ---------------------------------------------------------------------------
+
+
+class TestWebclientVendor:
+    """Tests for vendor/tokens.css (webclient sync --target webclient)."""
+
+    def test_vendor_tokens_css_exists(self) -> None:
+        """vendor/tokens.css must exist after sync."""
+        tokens_css = VENDOR_DIR / "tokens.css"
+        assert tokens_css.exists(), (
+            "vendor/tokens.css not found. Run `make sync-tokens` to populate it."
+        )
+
+    def test_vendor_tokens_css_nonempty(self) -> None:
+        """vendor/tokens.css must be non-empty."""
+        tokens_css = VENDOR_DIR / "tokens.css"
+        if not tokens_css.exists():
+            pytest.skip("vendor/tokens.css not present")
+        assert tokens_css.stat().st_size > 0, "vendor/tokens.css is empty"
+
+    def test_webclient_pin_exists(self) -> None:
+        """webclient-pin.txt must exist after sync."""
+        webclient_pin = REPO_ROOT / "webclient-pin.txt"
+        assert webclient_pin.exists(), (
+            "webclient-pin.txt not found. Run `make sync-tokens` to populate it."
+        )
+
+    def test_webclient_pin_valid_sha(self) -> None:
+        """webclient-pin.txt must be a valid 40-char hex SHA."""
+        webclient_pin = REPO_ROOT / "webclient-pin.txt"
+        if not webclient_pin.exists():
+            pytest.skip("webclient-pin.txt not present")
+        sha = webclient_pin.read_text().strip()
+        assert len(sha) == 40, f"Expected 40-char SHA in webclient-pin.txt, got {len(sha)}: {sha!r}"
+        assert re.fullmatch(r"[0-9a-f]+", sha), (
+            f"webclient-pin.txt SHA is not valid lowercase hex: {sha!r}"
+        )
+
+    def test_vendor_tokens_css_parseable(self) -> None:
+        """vendor/tokens.css must be parseable by parse_tokens without error."""
+        tokens_css = VENDOR_DIR / "tokens.css"
+        if not tokens_css.exists():
+            pytest.skip("vendor/tokens.css not present")
+
+        import importlib.util as _ilu
+
+        spec_path = REPO_ROOT / "tools" / "build_qss.py"
+        spec = _ilu.spec_from_file_location("build_qss_vendor_smoke", spec_path)
+        assert spec is not None and spec.loader is not None
+        module = _ilu.module_from_spec(spec)
+        sys.modules["build_qss_vendor_smoke"] = module
+        try:
+            spec.loader.exec_module(module)  # type: ignore[union-attr]
+            css = tokens_css.read_text(encoding="utf-8")
+            tokens = module.parse_tokens(css)
+            module.resolve_all_colors(tokens)
+            module.validate_required_tokens(tokens)
+        finally:
+            sys.modules.pop("build_qss_vendor_smoke", None)
+
+    def test_sync_vendor_webclient_idempotent(self, tmp_path: Path) -> None:
+        """sync_webclient() with same SHA is a no-op (idempotency check via mock git archive).
+
+        Uses monkeypatching of module-level constants rather than subprocess.
+        """
+        import importlib.util as _ilu
+
+        spec_path = REPO_ROOT / "tools" / "sync_vendor.py"
+        spec = _ilu.spec_from_file_location("sync_vendor_test_idem", spec_path)
+        assert spec is not None and spec.loader is not None
+        mod = _ilu.module_from_spec(spec)
+        sys.modules["sync_vendor_test_idem"] = mod
+        try:
+            spec.loader.exec_module(mod)  # type: ignore[union-attr]
+
+            # Point WEBCLIENT_PIN_FILE at a tmp file pre-filled with the "current" sha
+            test_sha = "a" * 40
+            tmp_pin = tmp_path / "webclient-pin.txt"
+            tmp_pin.write_text(test_sha + "\n")
+
+            # Patch constants on the freshly loaded module
+            mod.WEBCLIENT_PIN_FILE = tmp_pin  # type: ignore[attr-defined]
+            mod.WEBCLIENT_REPO = REPO_ROOT  # point at existing dir to pass existence check
+
+            # Capture stdout to confirm no-op message
+            import io
+            from contextlib import redirect_stdout
+
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                mod.sync_webclient(commit=test_sha)
+
+            output = buf.getvalue()
+            assert "No-op" in output, (
+                f"Expected 'No-op' in output for idempotent sync, got: {output!r}"
+            )
+        finally:
+            sys.modules.pop("sync_vendor_test_idem", None)

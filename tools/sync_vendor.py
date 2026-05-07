@@ -1,15 +1,29 @@
-"""tools/sync_vendor.py — vendor sync for llm-swarm node/ and shared/.
+"""tools/sync_vendor.py — vendor sync for llm-swarm node/+shared/ and webclient tokens.css.
 
 CLI:
-    uv run python tools/sync_vendor.py [--commit <sha>]
+    uv run python tools/sync_vendor.py [--commit <sha>] [--target swarm|webclient|all]
 
-If --commit is omitted, takes HEAD from ../llm-swarm/.
-Uses `git archive` — never touches the ../llm-swarm working tree.
+--target swarm (default):
+    Source: ../llm-swarm/
+    Whitelist: node/** and shared/** only.
+    Pin file: swarm-pin.txt
+    Smoke: import test with stub stubs for heavy deps.
 
-Whitelist: node/** and shared/** only.
-Audit: sensitive pattern grep before writing to vendor/.
-Smoke: import test with stub stubs for heavy deps.
-Atomic: vendor/.tmp/ staging, then os.replace into vendor/.
+--target webclient:
+    Source: ../llm-swarm-webclient/
+    Whitelist: ONE file frontend/src/styles/tokens.css
+    Destination: vendor/tokens.css
+    Pin file: webclient-pin.txt
+    Smoke: parse_tokens + validate_required_tokens from tools.build_qss
+
+--target all:
+    Runs swarm first, then webclient sequentially.
+
+All targets:
+    Uses `git archive` — never touches the source repo working tree.
+    Audit: sensitive pattern grep before writing to vendor/.
+    Atomic: os.replace for single-file writes; rename strategy for directories.
+    Idempotency: same sha → no-op.
 """
 
 from __future__ import annotations
@@ -32,10 +46,16 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SWARM_REPO = REPO_ROOT.parent / "llm-swarm"
+WEBCLIENT_REPO = REPO_ROOT.parent / "llm-swarm-webclient"
 VENDOR_DIR = REPO_ROOT / "vendor"
 SWARM_PIN_FILE = REPO_ROOT / "swarm-pin.txt"
+WEBCLIENT_PIN_FILE = REPO_ROOT / "webclient-pin.txt"
 
 WHITELIST_DIRS: list[str] = ["node", "shared"]
+
+# The single file vendored from webclient — relative to webclient repo root.
+WEBCLIENT_TOKENS_ARCHIVE_PATH = "frontend/src/styles/tokens.css"
+WEBCLIENT_VENDOR_DEST = VENDOR_DIR / "tokens.css"
 
 # Audit patterns use word-boundaries / anchors to avoid false positives on
 # stdlib references like "secrets.token_bytes" (Python stdlib) or "password_hash".
@@ -93,6 +113,18 @@ def _read_current_pin() -> str | None:
         content = SWARM_PIN_FILE.read_text().strip()
         return content if content else None
     return None
+
+
+def _read_webclient_pin() -> str | None:
+    if WEBCLIENT_PIN_FILE.exists():
+        content = WEBCLIENT_PIN_FILE.read_text().strip()
+        return content if content else None
+    return None
+
+
+def _get_webclient_head_sha() -> str:
+    result = _run(["git", "-C", str(WEBCLIENT_REPO), "rev-parse", "HEAD"])
+    return result.stdout.decode().strip()
 
 
 def _check_whitelist(paths: list[Path]) -> None:
@@ -489,20 +521,185 @@ def sync(commit: str | None = None) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Webclient tokens.css sync
+# ---------------------------------------------------------------------------
+
+
+def _smoke_tokens_css(css_path: Path) -> tuple[bool, str]:
+    """Parse and validate the vendored tokens.css via build_qss helpers.
+
+    Returns (success, error_message).
+    """
+    # Import build_qss from this repo's tools/ — no subprocess needed (pure Python).
+    import importlib.util
+
+    spec_path = REPO_ROOT / "tools" / "build_qss.py"
+    spec = importlib.util.spec_from_file_location("build_qss_smoke", spec_path)
+    if spec is None or spec.loader is None:
+        return False, "Cannot load tools/build_qss.py for smoke check"
+
+    import sys as _sys
+    mod_name = "build_qss_smoke"
+    module = importlib.util.module_from_spec(spec)
+    _sys.modules[mod_name] = module
+    try:
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+    except Exception as exc:
+        _sys.modules.pop(mod_name, None)
+        return False, f"Failed to load build_qss.py: {exc}"
+
+    try:
+        css = css_path.read_text(encoding="utf-8")
+        tokens = module.parse_tokens(css)
+        module.resolve_all_colors(tokens)
+        module.validate_required_tokens(tokens)
+    except Exception as exc:
+        _sys.modules.pop(mod_name, None)
+        return False, str(exc)
+
+    _sys.modules.pop(mod_name, None)
+    return True, ""
+
+
+def sync_webclient(commit: str | None = None) -> None:
+    """Vendor tokens.css from ../llm-swarm-webclient/."""
+    if not WEBCLIENT_REPO.is_dir():
+        print(f"ERROR: ../llm-swarm-webclient not found at {WEBCLIENT_REPO}", file=sys.stderr)
+        sys.exit(1)
+
+    # 1. Resolve commit sha
+    if commit is None:
+        sha = _get_webclient_head_sha()
+        print(f"No --commit specified; using HEAD of webclient: {sha[:12]}...")
+    else:
+        sha = commit.strip()
+        print(f"Using specified webclient commit: {sha[:12]}...")
+
+    # 2. Idempotency check
+    current_pin = _read_webclient_pin()
+    if current_pin == sha:
+        print(f"webclient-pin.txt already at {sha[:12]}; vendor/tokens.css is up to date. No-op.")
+        return
+
+    # 3. Extract single file via git archive into temp dir
+    print(f"Extracting {WEBCLIENT_TOKENS_ARCHIVE_PATH} via git archive...")
+    with tempfile.TemporaryDirectory(prefix="webclient_archive_") as archive_dir_str:
+        archive_dir = Path(archive_dir_str)
+        archive_file = archive_dir / "archive.tar"
+
+        archive_args = [
+            "git", "-C", str(WEBCLIENT_REPO),
+            "archive", sha, WEBCLIENT_TOKENS_ARCHIVE_PATH,
+        ]
+        with archive_file.open("wb") as f:
+            subprocess.run(archive_args, check=True, stdout=f, stderr=subprocess.PIPE)
+
+        staging_dir = archive_dir / "staging"
+        staging_dir.mkdir()
+        with tarfile.open(archive_file) as tf:
+            tf.extractall(staging_dir, filter="data")  # noqa: S202 — controlled source (own git repo)
+
+        # Locate the extracted file — git archive preserves the path structure.
+        extracted_path = staging_dir / WEBCLIENT_TOKENS_ARCHIVE_PATH
+        if not extracted_path.exists():
+            print(
+                f"ERROR: Expected {WEBCLIENT_TOKENS_ARCHIVE_PATH} in archive, "
+                f"but it was not found. Check the path and commit.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        # 4. Audit — single file
+        print("Running sensitive-pattern audit on tokens.css...")
+        violations = _audit_files(staging_dir)
+        if violations:
+            print("ERROR: Sensitive patterns found in tokens.css. Sync aborted.", file=sys.stderr)
+            for file_path, lineno, pattern in violations:
+                print(f"  {file_path}:{lineno}  pattern={pattern!r}", file=sys.stderr)
+            sys.exit(1)
+        print("Audit clean.")
+
+        # 5. Smoke check: parse_tokens + validate_required_tokens
+        print("Running structural smoke check (parse_tokens + validate_required_tokens)...")
+        ok, err = _smoke_tokens_css(extracted_path)
+        if not ok:
+            print(
+                "ERROR: Structural smoke check failed. webclient-pin.txt will NOT be updated.",
+                file=sys.stderr,
+            )
+            print(err, file=sys.stderr)
+            sys.exit(1)
+        print("Structural smoke check: OK.")
+
+        # 6. Atomic write to vendor/tokens.css
+        VENDOR_DIR.mkdir(exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=VENDOR_DIR,
+            prefix=".tokens.",
+            suffix=".tmp",
+            delete=False,
+        ) as tmp_f:
+            tmp_f.write(extracted_path.read_bytes())
+            tmp_path = Path(tmp_f.name)
+        os.replace(tmp_path, WEBCLIENT_VENDOR_DEST)
+        print(f"  Written: {WEBCLIENT_VENDOR_DEST}")
+
+    # 7. Atomic write to webclient-pin.txt
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        dir=REPO_ROOT,
+        prefix=".webclient-pin.",
+        suffix=".tmp",
+        delete=False,
+    ) as tmp_pin:
+        tmp_pin.write(sha + "\n")
+        tmp_pin_path = tmp_pin.name
+    os.replace(tmp_pin_path, WEBCLIENT_PIN_FILE)
+
+    print(f"\nWebclient sync complete. Pin: {sha}")
+    print(f"  vendor/tokens.css     written ({WEBCLIENT_VENDOR_DEST.stat().st_size} bytes)")
+    print(f"  webclient-pin.txt     = {sha}")
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Sync vendor/ from ../llm-swarm")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Sync vendor/ from ../llm-swarm (swarm) "
+            "and/or ../llm-swarm-webclient (webclient)"
+        )
+    )
     parser.add_argument(
         "--commit",
         metavar="SHA",
         default=None,
-        help="Git commit SHA to archive (default: HEAD of ../llm-swarm)",
+        help="Git commit SHA to archive (default: HEAD of source repo)",
+    )
+    parser.add_argument(
+        "--target",
+        choices=["swarm", "webclient", "all"],
+        default="swarm",
+        help=(
+            "What to sync: "
+            "'swarm' (default) — node/+shared/ from ../llm-swarm; "
+            "'webclient' — tokens.css from ../llm-swarm-webclient; "
+            "'all' — both sequentially."
+        ),
     )
     args = parser.parse_args()
-    sync(commit=args.commit)
+
+    if args.target == "swarm":
+        sync(commit=args.commit)
+    elif args.target == "webclient":
+        sync_webclient(commit=args.commit)
+    elif args.target == "all":
+        sync(commit=args.commit)
+        sync_webclient(commit=args.commit)
 
 
 if __name__ == "__main__":
