@@ -4,13 +4,62 @@
 
 ## Статус
 
-Stage 0 — архитектура. Кода ещё нет. Релиз и инсталляторы появятся после Stage 6.
+Stage 1 — каркас GUI + design-token pipeline. Инсталляторы — Stage 6.
+
+## Developer setup
+
+```bash
+git clone <repo>
+cd llm-swarm-desktop
+make install      # uv sync --all-extras + make tokens
+make test
+make dev          # запуск десктоп-приложения
+```
+
+`make install` идемпотентен: при повторном вызове uv и build_qss.py не делают лишней работы.
+
+Для форматирования и статического анализа:
+
+```bash
+make lint         # ruff check + pyright
+```
+
+### Требования окружения
+
+- Python 3.11+
+- uv ≥ 0.4 (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- На **Linux** для запуска тестов нужен X11/Wayland или xvfb (`sudo apt-get install xvfb`).
+- На **macOS** GPU-зависимости (PyTorch, bitsandbytes) подтягиваются опционально через `uv sync --all-extras`.
+
+### Генерация design tokens
+
+Артефакты `app/styles/tokens.qss` и `app/styles/tokens.py` генерируются из
+`../llm-swarm-webclient/frontend/src/styles/tokens.css` и коммитятся в репо.
+Для регенерации после изменения tokens.css:
+
+```bash
+make tokens
+```
+
+Исходник истины — webclient tokens.css. Не редактировать `tokens.qss` / `tokens.py` вручную.
+
+## Vendor
+
+`vendor/` — снимок `node/` + `shared/` из внутренней codebase sudri.ru (см. ADR-0003).
+Не редактировать вручную. Для обновления требуется доступ к `../llm-swarm/`:
+
+```bash
+make vendor-sync
+```
+
+Актуальный pin фиксируется в `swarm-pin.txt` (коммитить вместе с изменениями в `vendor/`).
+Подробности: `docs/decisions/0003-swarm-code-distribution.md`.
 
 ## Что это и зачем
 
 `llm-swarm-desktop` — produce-сторона экосистемы swarm. Три компонента вместе:
 
-- **`llm-swarm`** — ядро p2p-сети инференса (tracker + node + client SDK), внутренняя codebase команды sudri.ru. Часть кода ноды (`node/` + `shared/`) распространяется в этом репо как `vendor/` — снимок с фиксированным pin'ом, обновляется через `make sync-swarm`. Подробности в `vendor/NOTICE.md` после первого sync'а.
+- **`llm-swarm`** — ядро p2p-сети инференса (tracker + node + client SDK), внутренняя codebase команды sudri.ru. Часть кода ноды (`node/` + `shared/`) распространяется в этом репо как `vendor/` — снимок с фиксированным pin'ом, обновляется через `make vendor-sync`. Подробности в `vendor/NOTICE.md` после первого sync'а.
 - **`llm-swarm-webclient`** — веб-клиент на sudri.ru (consume-сторона: чат, баланс, история).
 - **`llm-swarm-desktop`** (этот репо) — GUI-приложение для обычных пользователей: иконка в трее, hardware probe, выбор модели, баланс earned tokens, one-click pause/resume.
 

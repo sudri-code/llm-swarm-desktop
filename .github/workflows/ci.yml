@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    name: "Python ${{ matrix.python }} / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    # Windows is continue-on-error because PySide6 Qt platform plugin
+    # resolution differs on GitHub-hosted Windows runners (no display
+    # server; xcb/offscreen plugin availability is inconsistent).
+    # macOS + Linux are the primary gate; Windows failures are tracked
+    # as non-blocking until a stable headless setup is confirmed.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.python }}-
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      # Generate tokens.qss / tokens.py / resources_rc.py from webclient
+      # design tokens.  In CI there is no ../llm-swarm-webclient/ checkout,
+      # so build_qss.py falls back to the vendor snapshot at
+      # vendor/tokens.css (ADR-0003).  The step must succeed for lint and
+      # tests to have a valid app/styles/tokens.py.
+      - name: Generate design tokens
+        run: uv run python tools/build_qss.py
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run pyright
+
+      # On Linux there is no display server on GitHub runners.
+      # xvfb-run provides a virtual framebuffer so that:
+      #   - QApplication can initialise (needed even for headless unit tests
+      #     that import PySide6 widgets)
+      #   - QSystemTrayIcon.isSystemTrayAvailable() returns True (closes M2)
+      - name: Test (Linux — xvfb)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-xinerama0 libxcb-xfixes0 libxkbcommon-x11-0 \
+            libegl1 libopengl0
+          xvfb-run -a uv run pytest
+        env:
+          QT_QPA_PLATFORM: xcb
+
+      - name: Test (macOS / Windows)
+        if: runner.os != 'Linux'
+        run: uv run pytest
+        env:
+          # offscreen platform avoids dependency on a real GPU/display on CI
+          QT_QPA_PLATFORM: offscreen
+
+      - name: Upload pytest log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-log-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            .pytest_tmp/
+            pytest.log
+          if-no-files-found: ignore

@@ -11,6 +11,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# tokens.py is a generated file (tools/build_qss.py parses
+# ../llm-swarm-webclient/frontend/src/styles/tokens.css and emits
+# app/styles/tokens.py).  On a fresh checkout it does not exist yet.
+# We do a deferred availability-check so that any caller of
+# `from app.styles import ...` gets a clear, actionable error instead
+# of a cryptic AttributeError or silent wrong-colour rendering.
+_TOKENS_PY = Path(__file__).resolve().parent / "tokens.py"
+if not _TOKENS_PY.exists():
+    raise ImportError(
+        "app/styles/tokens.py has not been generated yet.\n"
+        "Run `make tokens` to generate it from the webclient design tokens.\n"
+        "Source of truth: ../llm-swarm-webclient/frontend/src/styles/tokens.css\n"
+        "Quick fix: make install  (runs uv sync + make tokens)"
+    )
+
 _STYLES_DIR = Path(__file__).resolve().parent
 
 

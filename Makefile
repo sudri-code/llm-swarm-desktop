@@ -5,6 +5,7 @@ help:
 
 install:
 	uv sync --all-extras
+	$(MAKE) tokens
 
 dev:
 	uv run python -m app.main
