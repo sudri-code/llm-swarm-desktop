@@ -1222,7 +1222,7 @@ def main() -> int:
 
     # Вывод для диагностики
     for ct in tokens.colors:
-        print(f"  {ct.name:25s}  {ct.raw:45s}  →  {ct.hex}")
+        print(f"  {ct.name:25s}  {ct.raw:45s}  ->  {ct.hex}")
 
     print(f"\nGenerating {OUT_QSS}...")
     OUT_QSS.parent.mkdir(parents=True, exist_ok=True)

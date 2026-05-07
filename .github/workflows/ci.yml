@@ -22,6 +22,12 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.11"]
 
+    env:
+      # Force UTF-8 for all stdio so unicode (→, …) in print() doesn't crash
+      # on Windows console (cp1252) — applies to all platforms uniformly.
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
