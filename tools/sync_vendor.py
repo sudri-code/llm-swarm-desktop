@@ -49,7 +49,7 @@ AUDIT_PATTERNS: list[str] = [
     r"(?<!\w)10\.\d{1,3}\.\d{1,3}\.\d{1,3}(?!\w)",
     r"192\.168\.\d{1,3}\.\d{1,3}",
     r"sudri-internal",
-    r"tracker\.sudri\.ru",
+    r"\.sudri\.ru.*\b(internal|staging|dev)\b",
 ]
 
 # Heavy deps that need stubs during smoke import
