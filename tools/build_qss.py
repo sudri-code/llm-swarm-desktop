@@ -1214,7 +1214,7 @@ def main() -> int:
     tokens = parse_tokens(css)
     print(f"  Found {len(tokens.colors)} color tokens, {len(tokens.radii)} radii")
 
-    print("Resolving OKLCH → sRGB hex...")
+    print("Resolving OKLCH -> sRGB hex...")
     resolve_all_colors(tokens)
 
     print("Validating required tokens...")
