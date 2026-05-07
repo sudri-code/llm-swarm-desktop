@@ -119,6 +119,8 @@ class MainWindow(QMainWindow):
         self.resize(1100, 720)
         self.setMinimumSize(880, 600)
 
+        self._pairing_controller: object | None = None
+
         self._build_ui()
         self._connect_signals()
 
@@ -160,7 +162,8 @@ class MainWindow(QMainWindow):
         self._stack.addWidget(ModelsScreen())
         self._stack.addWidget(BalanceScreen())
         self._stack.addWidget(LogsScreen())
-        self._stack.addWidget(SettingsScreen())
+        self._settings_screen = SettingsScreen()
+        self._stack.addWidget(self._settings_screen)
         self._splitter.addWidget(self._stack)
 
         # Пропорции сплиттера: sidebar фиксированный, контент растягивается
@@ -218,6 +221,27 @@ class MainWindow(QMainWindow):
         if self.confirm_hard_pause():
             self.hard_pause_confirmed.emit()
 
+    def set_pairing_controller(self, controller: object) -> None:
+        """Подключить pairing controller к Settings-экрану.
+
+        Вызывается из build_app() после создания PairingController.
+        SettingsScreen пересоздаёт блок «Привязка к sudri.ru» с реальным controller.
+
+        Args:
+            controller: объект, реализующий PairingControllerProtocol.
+                        Тип `object` здесь чтобы принимать реальный PairingController
+                        без pyright-ошибки на несовместимость property/attribute в Protocol.
+        """
+        self._pairing_controller = controller
+        # Пересоздаём SettingsScreen с controller и заменяем в стеке
+        settings_index = _SCREEN_NAMES.index("settings")
+        old_settings = self._stack.widget(settings_index)
+        self._settings_screen = SettingsScreen(controller=controller)
+        self._stack.insertWidget(settings_index, self._settings_screen)
+        if old_settings is not None:
+            self._stack.removeWidget(old_settings)
+            old_settings.deleteLater()
+
     def set_status(self, status: NodeStatus, message: str) -> None:
         """Обновить статус-баннер (проксируется из local agent через IPC)."""
         self._status_banner.set_status(status, message)
@@ -236,3 +260,13 @@ class MainWindow(QMainWindow):
     def stack(self) -> QStackedWidget:
         """Доступ к стеку экранов (для тестов)."""
         return self._stack
+
+    @property
+    def pairing_controller(self) -> object | None:
+        """Доступ к pairing controller (для тестов и интеграции)."""
+        return self._pairing_controller
+
+    @property
+    def settings_screen(self) -> SettingsScreen:
+        """Доступ к экрану настроек (для тестов)."""
+        return self._settings_screen

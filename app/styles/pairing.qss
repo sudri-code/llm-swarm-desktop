@@ -1,0 +1,155 @@
+/*
+ * app/styles/pairing.qss — Pairing-специфичные QSS правила.
+ *
+ * Подключается в apply_to_app() дополнительно к tokens.qss.
+ * Все цвета берутся из token-значений (не дублируются) через inline-ссылки.
+ *
+ * Цвета (справка):
+ *   --accent:   #d79f4c
+ *   --accent-2: #e8aa4e
+ *   --bg-2:     #1a1a1e
+ *   --bg-3:     #222227
+ *   --bg-4:     #2c2c33
+ *   --fg-1:     #ecebe6
+ *   --fg-3:     #82807a
+ *   --ok:       #4ebe7d
+ *   --warn:     #eba941
+ *   --err:      #f3625d
+ */
+
+/* ============================================================
+ * PairingPanel — корневой виджет
+ * ============================================================ */
+
+PairingPanel {
+    background-color: transparent;
+}
+
+/* ============================================================
+ * UserCodeLabel — код подтверждения XXXX-XXXX
+ * Стиль шрифта задаётся через Python (QFont), здесь только цвет.
+ * ============================================================ */
+
+#UserCodeLabel {
+    color: #d79f4c;
+    letter-spacing: 0.08em;
+    /* font-family и size устанавливаются через QFont(FONT_MONO, 32) в Python */
+}
+
+/* ============================================================
+ * QRContainer
+ * ============================================================ */
+
+#QRContainer {
+    background-color: #1a1a1e;
+    border: 1px solid #ffffff0f;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+/* ============================================================
+ * CountdownLabel — таймер обратного отсчёта
+ * Цвет динамически переключается через Python (FG_3 / WARN).
+ * ============================================================ */
+
+#CountdownLabel {
+    font-family: "JetBrains Mono";
+    font-size: 14px;
+}
+
+/* ============================================================
+ * PollingIndicator — «Ждём подтверждение…»
+ * ============================================================ */
+
+#PollingIndicator {
+    color: #82807a;
+    font-size: 13px;
+}
+
+/* ============================================================
+ * AwaitingPage dynamic property state
+ * ============================================================ */
+
+_AwaitingPage[state="awaiting_user"] #PollingIndicator {
+    color: #82807a;
+}
+
+_AwaitingPage[state="polling"] #PollingIndicator {
+    color: #d79f4c;
+}
+
+/* ============================================================
+ * PairingSectionWidget card
+ * ============================================================ */
+
+#PairingSectionWidget {
+    background-color: #1a1a1e;
+    border: 1px solid #ffffff0f;
+    border-radius: 12px;
+}
+
+#PairingSectionHeader {
+    font-size: 15px;
+    font-weight: 600;
+    color: #ecebe6;
+}
+
+/* ============================================================
+ * Toast
+ * ============================================================ */
+
+#PairingToast {
+    background-color: #2c2c33;
+    color: #ecebe6;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+/* ============================================================
+ * Error page icons
+ * ============================================================ */
+
+#ErrorIconLabel {
+    font-size: 24px;
+}
+
+#ErrorTitleLabel {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ecebe6;
+}
+
+/* ============================================================
+ * FingerprintDisplayLabel — display-14 в SUCCESS и PAIRED
+ * ============================================================ */
+
+#FingerprintDisplayLabel,
+#PairedFingerprintLabel {
+    font-family: "JetBrains Mono";
+    font-size: 13px;
+    color: #b8b6ad;
+    letter-spacing: 0.04em;
+}
+
+/* ============================================================
+ * Кнопки в pairing flow (переопределение для специфичных id)
+ * Стили primary/secondary уже в tokens.qss через buttonStyle property.
+ * ============================================================ */
+
+#BtnPair {
+    min-width: 180px;
+}
+
+#BtnOpenBrowser {
+    min-width: 200px;
+}
+
+/* ============================================================
+ * UnlinkHint — подсказка под кнопкой «Отвязать»
+ * ============================================================ */
+
+#UnlinkHint {
+    color: #82807a;
+    font-size: 12px;
+}

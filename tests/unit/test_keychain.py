@@ -184,6 +184,53 @@ class TestDeleteDevice:
 
 
 # ---------------------------------------------------------------------------
+# delete_device_token (token-only unlink)
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteDeviceToken:
+    def test_delete_device_token_only(
+        self, keychain: Keychain, sample_peer: tuple[str, bytes, bytes]
+    ) -> None:
+        """store privkey + token → delete_device_token → token gone, privkey remains,
+        peer_id remains in list_peer_ids.
+        """
+        peer_id, priv, _ = sample_peer
+        keychain.store_private_key(peer_id, priv)
+        keychain.store_device_token(peer_id, "some-token-to-delete")
+
+        keychain.delete_device_token(peer_id)
+
+        # Token is gone
+        assert keychain.load_device_token(peer_id) is None
+        # Private key survives
+        assert keychain.load_private_key(peer_id) == priv
+        # peer_id stays in the index (privkey still present)
+        assert peer_id in keychain.list_peer_ids()
+
+    def test_delete_device_token_idempotent(self, keychain: Keychain) -> None:
+        """Calling delete_device_token on an unknown peer_id does not raise."""
+        keychain.delete_device_token("ghost_peer_does_not_exist")
+
+    def test_delete_device_token_without_privkey(
+        self, keychain: Keychain, sample_peer: tuple[str, bytes, bytes]
+    ) -> None:
+        """Token-only entry (no privkey): delete_device_token succeeds and
+        peer_id was never in the index, so list remains unchanged.
+        """
+        peer_id, _, _ = sample_peer
+        keychain.store_device_token(peer_id, "token-only")
+        # peer_id not in index because store_private_key was never called
+        assert peer_id not in keychain.list_peer_ids()
+
+        keychain.delete_device_token(peer_id)
+
+        assert keychain.load_device_token(peer_id) is None
+        # Index still does not contain the peer_id
+        assert peer_id not in keychain.list_peer_ids()
+
+
+# ---------------------------------------------------------------------------
 # list_peer_ids
 # ---------------------------------------------------------------------------
 

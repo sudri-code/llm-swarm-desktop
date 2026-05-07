@@ -159,6 +159,22 @@ class Keychain:
     # Lifecycle                                                            #
     # ------------------------------------------------------------------ #
 
+    def delete_device_token(self, peer_id: str) -> None:
+        """Remove only the device_token for a peer_id; leave private key intact.
+
+        Idempotent: if no token is stored, this is a no-op.
+
+        The peers.json index is NOT modified because the private key (and thus
+        the peer_id identity) remains in the keychain.  ``list_peer_ids()`` will
+        continue to return this peer_id after a token-only deletion.
+
+        Args:
+            peer_id: The peer's public identity whose token should be removed.
+        """
+        with contextlib.suppress(keyring.errors.PasswordDeleteError):
+            keyring.delete_password(SERVICE, f"{peer_id}:device_token")
+        logger.debug("Deleted device_token for peer_id=%s", peer_id)
+
     def delete_device(self, peer_id: str) -> None:
         """Remove both the private key and device_token for a peer_id.
 

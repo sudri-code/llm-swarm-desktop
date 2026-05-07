@@ -29,8 +29,23 @@ def load_qss() -> str:
     return qss_path.read_text(encoding="utf-8")
 
 
+def load_pairing_qss() -> str:
+    """Return the contents of the pairing-specific stylesheet.
+
+    Unlike ``tokens.qss``, ``pairing.qss`` is a hand-authored file that
+    lives alongside the generated tokens.  It is appended to ``tokens.qss``
+    by ``apply_to_app()``.
+
+    Returns an empty string if the file does not exist (graceful degradation).
+    """
+    pairing_qss_path = _STYLES_DIR / "pairing.qss"
+    if not pairing_qss_path.exists():
+        return ""
+    return pairing_qss_path.read_text(encoding="utf-8")
+
+
 def apply_to_app(app: object) -> None:
-    """Load and apply tokens.qss to a QApplication instance.
+    """Load and apply tokens.qss + pairing.qss to a QApplication instance.
 
     Usage::
 
@@ -59,8 +74,8 @@ def apply_to_app(app: object) -> None:
         # resources_rc not yet generated — fonts fall back to system fonts
         pass
 
-    # Apply stylesheet
-    stylesheet = load_qss()
+    # Apply stylesheet: base tokens + pairing extensions
+    stylesheet = load_qss() + "\n" + load_pairing_qss()
     # app is QApplication but we avoid the import at module level to keep
     # this module importable in non-Qt contexts (tests, build scripts)
     app.setStyleSheet(stylesheet)  # type: ignore[union-attr]

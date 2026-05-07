@@ -22,6 +22,7 @@ import platformdirs
 import qasync  # type: ignore[import-untyped]
 from PySide6.QtWidgets import QApplication
 
+from agent.auth.pairing import PairingBridge, PairingController
 from app.logging_setup import setup_logging
 from app.state import NodeStatus, PauseMode
 from app.tray.status_tray import StatusTray
@@ -75,8 +76,13 @@ def build_app(qt_app: QApplication) -> tuple[MainWindow, StatusTray]:
     except FileNotFoundError as exc:
         logger.warning("QSS not loaded: %s", exc)
 
-    # Создаём главное окно
+    # Создаём pairing bridge и controller
+    bridge = PairingBridge()
+    controller = PairingController(bridge=bridge)
+
+    # Создаём главное окно и подключаем pairing controller
     window = MainWindow()
+    window.set_pairing_controller(controller)
 
     # Создаём трей, передаём ссылку на окно как parent_window
     tray = StatusTray(parent_window=window)
@@ -114,6 +120,9 @@ def build_app(qt_app: QApplication) -> tuple[MainWindow, StatusTray]:
 
     # При выходе прячем трей чтобы иконка не зависала в трее ОС
     qt_app.aboutToQuit.connect(tray.tray_icon.hide)
+
+    # При выходе отменяем активный pairing flow (если был запущен)
+    qt_app.aboutToQuit.connect(controller.cancel_pairing)
 
     return window, tray
 
