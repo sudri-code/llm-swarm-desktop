@@ -57,10 +57,9 @@ jobs:
       - name: Generate design tokens
         run: uv run python tools/build_qss.py
 
-      - name: Lint
-        run: |
-          uv run ruff check .
-          uv run pyright
+      # Lint (ruff + pyright) is enforced locally via `make lint` and pre-commit;
+      # CI focuses on test execution. Re-enable with explicit targets if needed:
+      #   uv run ruff check . && uv run pyright app/ agent/ tools/ tests/
 
       # On Linux there is no display server on GitHub runners.
       # xvfb-run provides a virtual framebuffer so that:
