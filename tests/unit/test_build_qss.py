@@ -149,7 +149,7 @@ def _parse_oklch(raw: str) -> tuple[float, float, float] | None:
 
 
 def _load_oklch_tokens() -> list[Any]:
-    """Resolve tokens.css via build_qss fallback (webclient-live → vendor) and return OKLCH tokens."""
+    """Resolve tokens.css via build_qss fallback and return OKLCH tokens."""
     bq = _import_build_qss()
     try:
         tokens_path, _label = bq._resolve_tokens_source()

@@ -32,6 +32,7 @@ from typing import Any
 _DEFAULT_DENY_KEYS: list[str] = [
     "device_token",
     "device_code",
+    "user_code",
     "device_signature",
     "device_pubkey",
     "private_key",
