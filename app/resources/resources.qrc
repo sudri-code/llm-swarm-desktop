@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/fonts">
+    <file alias="Inter-Variable.ttf">fonts/Inter-Variable.ttf</file>
+    <file alias="JetBrainsMono-Regular.ttf">fonts/JetBrainsMono-Regular.ttf</file>
+    <file alias="JetBrainsMono-Medium.ttf">fonts/JetBrainsMono-Medium.ttf</file>
+  </qresource>
+</RCC>

@@ -1,0 +1,1 @@
+This directory syncs selected modules from `../llm-swarm/node/` into the desktop package, as described in ADR-0003 (vendoring strategy) and ADR-0007 (public/private split). Do not edit files here manually — all changes are wiped by `tools/sync_vendor.py` on the next run.

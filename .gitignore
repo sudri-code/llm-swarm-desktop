@@ -36,6 +36,8 @@ htmlcov/
 # Generated assets (см. ADR-0001 + tools/build_qss.py)
 app/styles/tokens.qss
 app/styles/tokens.py
+# Generated Qt resource module (см. ADR-0001 + qrc)
+app/resources/resources_rc.py
 
 # Logs / runtime
 *.log
