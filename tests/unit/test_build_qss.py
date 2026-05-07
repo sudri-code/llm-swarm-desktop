@@ -148,34 +148,20 @@ def _parse_oklch(raw: str) -> tuple[float, float, float] | None:
     return L, float(c_raw), float(h_raw)
 
 
+def _load_oklch_tokens() -> list[Any]:
+    """Resolve tokens.css via build_qss fallback (webclient-live → vendor) and return OKLCH tokens."""
+    bq = _import_build_qss()
+    try:
+        tokens_path, _label = bq._resolve_tokens_source()
+    except RuntimeError:
+        return []
+    parsed = bq.parse_tokens(tokens_path.read_text(encoding="utf-8"))
+    return [t for t in parsed.colors if "oklch" in t.raw.lower()]
+
+
 @pytest.mark.parametrize(
     "token",
-    [
-        pytest.param(
-            token,
-            id=token.name,
-        )
-        for token in _import_build_qss().parse_tokens(
-            (
-                Path(__file__).resolve().parent.parent.parent.parent
-                / "llm-swarm-webclient"
-                / "frontend"
-                / "src"
-                / "styles"
-                / "tokens.css"
-            ).read_text(encoding="utf-8")
-            if (
-                Path(__file__).resolve().parent.parent.parent.parent
-                / "llm-swarm-webclient"
-                / "frontend"
-                / "src"
-                / "styles"
-                / "tokens.css"
-            ).exists()
-            else ":root{}"
-        ).colors
-        if "oklch" in token.raw.lower()
-    ],
+    [pytest.param(t, id=t.name) for t in _load_oklch_tokens()],
 )
 def test_delta_e2000_oklch_tokens(token: Any, build_qss: Any) -> None:
     """ΔE2000 between source OKLCH and resolved hex must be < 1.0."""
